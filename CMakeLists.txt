@@ -22,3 +22,4 @@ target_link_libraries(kernel-editor
   PRIVATE ftxui::component
   fmt::fmt
 )
+target_compile_features(kernel-editor PRIVATE cxx_std_17)

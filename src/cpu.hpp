@@ -4,5 +4,7 @@ class CpuManager {
     public:
         unsigned int getCoreFreq(unsigned int index);
         std::string getReadableCoreFreq(unsigned int index);
-        int maximumCore();
+        uint16_t maximumCore();
+    private:
+        uint16_t maxCore = 0;
 };
