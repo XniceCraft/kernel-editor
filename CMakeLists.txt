@@ -1,10 +1,15 @@
 cmake_minimum_required (VERSION 3.11)
-
 include(FetchContent)
+
 set(FETCHCONTENT_UPDATES_DISCONNECTED TRUE)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 FetchContent_Declare(ftxui
   GIT_REPOSITORY https://github.com/ArthurSonzogni/ftxui
-  GIT_TAG cdf28903a7781f97ba94d30b79c3a4b0c97ccce7
+  GIT_TAG 1f6e110
+  GIT_PROGRESS   TRUE
+  EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(ftxui)
 
@@ -22,4 +27,3 @@ target_link_libraries(kernel-editor
   PRIVATE ftxui::component
   fmt::fmt
 )
-target_compile_features(kernel-editor PRIVATE cxx_std_17)
