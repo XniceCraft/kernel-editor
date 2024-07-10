@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 FetchContent_Declare(ftxui
   GIT_REPOSITORY https://github.com/ArthurSonzogni/ftxui
-  GIT_TAG 1f6e110
+  GIT_TAG 307e4eb
   GIT_PROGRESS   TRUE
   EXCLUDE_FROM_ALL
 )
