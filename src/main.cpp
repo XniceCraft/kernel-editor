@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include <thread>
+#include <unistd.h>
 #include <vector>
 
 #include "ftxui/component/captured_mouse.hpp"
@@ -35,50 +36,63 @@ int main() {
     std::vector<std::string> govs = cpuMgr.getGovernors();
     int selectedGov = findInVector(govs, cpuMgr.getGovernor());
 
+    std::vector<std::string> toggleStr = {"Disable", "Enable"};
+    int cpuFreqLockSel = 0;
+
     auto cpuFreqElement = [&] {
         Elements cpuCoreFreqInfo;
         for (unsigned int i = 0; i < cpuMgr.maximumCore(); i++)
-            cpuCoreFreqInfo.push_back(text(
-                fmt::format("Core {}: {}", i, cpuMgr.getReadableCoreFreq(i))));
-        return window(text("CPU Core Freq") | bold, vbox(cpuCoreFreqInfo));
+            cpuCoreFreqInfo.push_back(text(fmt::format(
+                "Core {}: {:9}", i, cpuMgr.getReadableCoreFreq(i))));
+        return cpuCoreFreqInfo;
     };
 
     auto overviewTab = Renderer([&] {
         Element cpuTemp = text(cpuMgr.getReadableTemp());
 
         auto container = vbox({
-            cpuFreqElement(),
+            window(text("CPU Core Freq") | bold, vbox(cpuFreqElement())),
             window(text("CPU Temp") | bold, cpuTemp),
         });
         return container;
     });
 
-    auto cpuConfigContainer = Container::Vertical({Container::Horizontal(
-        {Renderer([&] {
-             return text(fmt::format("Governor: ", cpuMgr.getGovernor()));
-         }),
-         Dropdown({
-             .radiobox = {.entries = &govs, .selected = &selectedGov},
-             .transform =
-                 [](bool open, Element checkbox, Element radiobox) {
-                     if (open)
-                         return vbox({
-                             checkbox | inverted,
-                             radiobox | vscroll_indicator | frame |
-                                 size(HEIGHT, LESS_THAN, 10),
-                             filler(),
-                         });
-                     return vbox({
-                         checkbox,
-                         filler(),
-                     });
-                 },
-         })})});
+    auto cpuConfigContainer = Container::Vertical(
+        {Container::Horizontal(
+             {Renderer([&] {
+                  return text(fmt::format("Governor: ", cpuMgr.getGovernor()));
+              }),
+              Dropdown({
+                  .radiobox = {.entries = &govs,
+                               .selected = &selectedGov,
+                               .on_change = [&] {}},
+                  .transform =
+                      [](bool open, Element checkbox, Element radiobox) {
+                          if (open)
+                              return vbox({
+                                  checkbox | inverted,
+                                  radiobox | vscroll_indicator | frame |
+                                      size(HEIGHT, LESS_THAN, 10),
+                                  filler(),
+                              });
+                          return vbox({
+                              checkbox,
+                              filler(),
+                          });
+                      },
+              })}),
+         Container::Horizontal(
+             {Renderer([&] { return text("Frequency Lock: "); }),
+              Toggle(&toggleStr, &cpuFreqLockSel)})});
 
     auto cpuTab = Container::Horizontal(
-        {Renderer([&] { return cpuFreqElement() | flex; }),
+        {Renderer([&] {
+             return window(text("Core Freq") | bold, vbox(cpuFreqElement())) |
+                    flex;
+         }),
          Renderer(cpuConfigContainer, [&] {
-             return window(text("CPU Config"), cpuConfigContainer->Render()) |
+             return window(text("Configuration") | bold,
+                           cpuConfigContainer->Render()) |
                     flex;
          })});
 
