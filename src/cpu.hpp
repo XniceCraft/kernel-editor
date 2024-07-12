@@ -3,7 +3,8 @@
 #include <string>
 #include <vector>
 
-class CpuManager {
+class CpuManager
+{
   public:
     unsigned int getCoreFreq(unsigned int index);
     std::string getGovernor();

@@ -16,14 +16,18 @@
 
 using namespace ftxui;
 
-int findInVector(const std::vector<std::string> &v, const std::string &val) {
+int
+findInVector(const std::vector<std::string>& v, const std::string& val)
+{
     for (int i = 0; i < v.size(); i++)
         if (v[i] == val)
             return i;
     return -1;
 }
 
-int main() {
+int
+main()
+{
     CpuManager cpuMgr;
 
     std::vector<std::string> tabMenus{
@@ -36,14 +40,14 @@ int main() {
     std::vector<std::string> govs = cpuMgr.getGovernors();
     int selectedGov = findInVector(govs, cpuMgr.getGovernor());
 
-    std::vector<std::string> toggleStr = {"Disable", "Enable"};
+    std::vector<std::string> toggleStr = { "Disable", "Enable" };
     int cpuFreqLockSel = 0;
 
     auto cpuFreqElement = [&] {
         Elements cpuCoreFreqInfo;
         for (unsigned int i = 0; i < cpuMgr.maximumCore(); i++)
-            cpuCoreFreqInfo.push_back(text(fmt::format(
-                "Core {}: {:9}", i, cpuMgr.getReadableCoreFreq(i))));
+            cpuCoreFreqInfo.push_back(text(
+              fmt::format("Core {}: {:9}", i, cpuMgr.getReadableCoreFreq(i))));
         return cpuCoreFreqInfo;
     };
 
@@ -51,68 +55,59 @@ int main() {
         Element cpuTemp = text(cpuMgr.getReadableTemp());
 
         auto container = vbox({
-            window(text("CPU Core Freq") | bold, vbox(cpuFreqElement())),
-            window(text("CPU Temp") | bold, cpuTemp),
+          window(text("CPU Core Freq") | bold, vbox(cpuFreqElement())),
+          window(text("CPU Temp") | bold, cpuTemp),
         });
         return container;
     });
 
-    auto cpuConfigContainer = Container::Vertical(
-        {Container::Horizontal(
-             {Renderer([&] {
-                  return text(fmt::format("Governor: ", cpuMgr.getGovernor()));
-              }),
-              Dropdown({
-                  .radiobox = {.entries = &govs,
-                               .selected = &selectedGov,
-                               .on_change = [&] {}},
-                  .transform =
-                      [](bool open, Element checkbox, Element radiobox) {
-                          if (open)
-                              return vbox({
-                                  checkbox | inverted,
-                                  radiobox | vscroll_indicator | frame |
-                                      size(HEIGHT, LESS_THAN, 10),
-                                  filler(),
-                              });
-                          return vbox({
-                              checkbox,
-                              filler(),
-                          });
-                      },
-              })}),
-         Container::Horizontal(
-             {Renderer([&] { return text("Frequency Lock: "); }),
-              Toggle(&toggleStr, &cpuFreqLockSel)})});
+    auto cpuDr = Dropdown(
+      { .radiobox = { .entries = &govs,
+                      .selected = &selectedGov,
+                      .on_change = [&] {} },
+        .transform = [](bool open, Element checkbox, Element radiobox) {
+            if (open)
+                return vbox({
+                  checkbox | inverted,
+                  radiobox | vscroll_indicator | frame |
+                    size(HEIGHT, LESS_THAN, 10),
+                  filler(),
+                });
+            return vbox({
+              checkbox,
+              filler(),
+            });
+        } });
 
-    auto cpuTab = Container::Horizontal(
-        {Renderer([&] {
-             return window(text("Core Freq") | bold, vbox(cpuFreqElement())) |
-                    flex;
-         }),
-         Renderer(cpuConfigContainer, [&] {
-             return window(text("Configuration") | bold,
-                           cpuConfigContainer->Render()) |
-                    flex;
-         })});
+    auto cpuConfigContainer = Container::Vertical({
+      Container::Horizontal({ cpuDr }),
+    });
+
+    auto cpuTab = Renderer(cpuConfigContainer, [&] {
+        return hbox(
+          { window(text("Core Freq") | bold, vbox(cpuFreqElement())) | flex,
+            window(text("Configuration") | bold,
+                   vbox({ hbox({ text("Governor : "), cpuDr->Render() }) })) |
+              flex });
+    });
 
     auto tabContainer = Container::Tab(
-        {
-            overviewTab,
-            cpuTab,
-        },
-        &tabSelected);
+      {
+        overviewTab,
+        cpuTab,
+      },
+      &tabSelected);
 
     auto mainContainer = Container::Vertical({
-        tabToggle,
-        tabContainer,
+      tabToggle,
+      tabContainer,
     });
 
     auto renderer = Renderer(mainContainer, [&] {
         return vbox({
-                   tabToggle->Render(),
-                   separator(),
-                   tabContainer->Render(),
+                 tabToggle->Render(),
+                 separator(),
+                 tabContainer->Render(),
                }) |
                border;
     });
