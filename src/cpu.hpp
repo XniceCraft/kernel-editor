@@ -12,6 +12,8 @@ class CpuManager
     std::string getReadableCoreFreq(unsigned int index);
     std::string getReadableTemp();
     float getTemp();
+
+    void setGovernor(const std::string& val);
     uint16_t maximumCore();
 
   protected:

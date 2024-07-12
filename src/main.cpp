@@ -37,11 +37,9 @@ main()
     int tabSelected = 0;
     auto tabToggle = Toggle(&tabMenus, &tabSelected);
 
+    // Tab: CPU
     std::vector<std::string> govs = cpuMgr.getGovernors();
     int selectedGov = findInVector(govs, cpuMgr.getGovernor());
-
-    std::vector<std::string> toggleStr = { "Disable", "Enable" };
-    int cpuFreqLockSel = 0;
 
     auto cpuFreqElement = [&] {
         Elements cpuCoreFreqInfo;
@@ -51,17 +49,7 @@ main()
         return cpuCoreFreqInfo;
     };
 
-    auto overviewTab = Renderer([&] {
-        Element cpuTemp = text(cpuMgr.getReadableTemp());
-
-        auto container = vbox({
-          window(text("CPU Core Freq") | bold, vbox(cpuFreqElement())),
-          window(text("CPU Temp") | bold, cpuTemp),
-        });
-        return container;
-    });
-
-    auto cpuDr = Dropdown(
+    auto cpuGov = Dropdown(
       { .radiobox = { .entries = &govs,
                       .selected = &selectedGov,
                       .on_change = [&] {} },
@@ -80,17 +68,30 @@ main()
         } });
 
     auto cpuConfigContainer = Container::Vertical({
-      Container::Horizontal({ cpuDr }),
+      Container::Horizontal({ cpuGov }),
     });
 
     auto cpuTab = Renderer(cpuConfigContainer, [&] {
         return hbox(
           { window(text("Core Freq") | bold, vbox(cpuFreqElement())) | flex,
             window(text("Configuration") | bold,
-                   vbox({ hbox({ text("Governor : "), cpuDr->Render() }) })) |
+                   vbox({ hbox({ text("Governor : "), cpuGov->Render() }) })) |
               flex });
     });
 
+    // Tab: Overview
+
+    auto overviewTab = Renderer([&] {
+        Element cpuTemp = text(cpuMgr.getReadableTemp());
+
+        auto container = vbox({
+          window(text("CPU Core Freq") | bold, vbox(cpuFreqElement())),
+          window(text("CPU Temp") | bold, cpuTemp),
+        });
+        return container;
+    });
+
+    // Conf
     auto tabContainer = Container::Tab(
       {
         overviewTab,
