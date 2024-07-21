@@ -8,40 +8,12 @@
 #include <string.h>
 
 #include "cpu.hpp"
+#include "utils.hpp"
 #include <fmt/core.h>
 
-uint16_t
-parseCpuCount(const char* str)
-{
-    // Source:
-    // https://android.googlesource.com/platform/bionic/+/refs/heads/main/libc/private/get_cpu_count_from_string.h
-    int cpu_count = 0;
-    int last_cpu = -1;
-    while (*str != '\0') {
-        if (isdigit(*str)) {
-            int cpu =
-              static_cast<int>(strtol(str, const_cast<char**>(&str), 10));
-            if (last_cpu != -1) {
-                cpu_count += cpu - last_cpu;
-            } else {
-                cpu_count++;
-            }
-            last_cpu = cpu;
-        } else {
-            if (*str == ',') {
-                last_cpu = -1;
-            }
-            str++;
-        }
-    }
-    return cpu_count;
-}
-
-unsigned int
-CpuManager::getCoreFreq(unsigned int index)
-{
+unsigned int CpuManager::getCoreFreq(unsigned int index) {
     std::ifstream file(fmt::format(
-      "/sys/devices/system/cpu/cpu{}/cpufreq/scaling_cur_freq", index));
+        "/sys/devices/system/cpu/cpu{}/cpufreq/scaling_cur_freq", index));
     if (!file.is_open())
         return 0;
 
@@ -50,9 +22,7 @@ CpuManager::getCoreFreq(unsigned int index)
     return freq;
 }
 
-std::string
-CpuManager::getGovernor()
-{
+std::string CpuManager::getGovernor() {
     std::ifstream file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor");
     if (!file.is_open())
         return "N/A";
@@ -62,12 +32,10 @@ CpuManager::getGovernor()
     return governor;
 }
 
-std::vector<std::string>
-CpuManager::getGovernors()
-{
+std::vector<std::string> CpuManager::getGovernors() {
     std::vector<std::string> governors;
     std::ifstream file(
-      "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors");
+        "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors");
     if (!file.is_open()) {
         governors.push_back("N/A");
         return governors;
@@ -86,29 +54,19 @@ CpuManager::getGovernors()
     return governors;
 }
 
-int8_t
-parseThermalZoneNum(const char* path)
-{
-    int num = -1;
-    sscanf(path, "thermal_zone%d", &num);
-    return num;
-}
-
-void
-CpuManager::getCpuThermalZone()
-{
-    DIR* dir = opendir("/sys/class/thermal/");
+void CpuManager::getCpuThermalZone() {
+    DIR *dir = opendir("/sys/class/thermal/");
     if (dir == NULL)
         return;
 
-    struct dirent* entry;
+    struct dirent *entry;
     while ((entry = readdir(dir)) != NULL) {
         if ((entry->d_type != DT_DIR && entry->d_type != DT_LNK) ||
             strstr(entry->d_name, "thermal_zone") == NULL)
             continue;
 
         std::ifstream file(
-          fmt::format("/sys/class/thermal/{}/type", entry->d_name));
+            fmt::format("/sys/class/thermal/{}/type", entry->d_name));
         if (!file.is_open())
             continue;
 
@@ -122,9 +80,7 @@ CpuManager::getCpuThermalZone()
     closedir(dir);
 }
 
-float
-CpuManager::getTemp()
-{
+float CpuManager::getTemp() {
     if (this->cpuThermalZone == -1) {
         this->getCpuThermalZone();
         if (this->cpuThermalZone == -1)
@@ -141,24 +97,18 @@ CpuManager::getTemp()
     return (float)temp / 1000;
 }
 
-std::string
-CpuManager::getReadableCoreFreq(unsigned int index)
-{
+std::string CpuManager::getReadableCoreFreq(unsigned int index) {
     unsigned int freq = this->getCoreFreq(index);
     if (freq == 0)
         return "Off";
     return fmt::format("{:.3} GHz", (float)freq / 1000000);
 }
 
-std::string
-CpuManager::getReadableTemp()
-{
+std::string CpuManager::getReadableTemp() {
     return fmt::format("{:.3} °C", this->getTemp());
 }
 
-uint16_t
-CpuManager::maximumCore()
-{
+uint16_t CpuManager::maximumCore() {
     if (this->maxCore != 0)
         return this->maxCore;
 

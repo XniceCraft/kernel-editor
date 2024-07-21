@@ -3,8 +3,7 @@
 #include <string>
 #include <vector>
 
-class CpuManager
-{
+class CpuManager {
   public:
     unsigned int getCoreFreq(unsigned int index);
     std::string getGovernor();
@@ -13,7 +12,7 @@ class CpuManager
     std::string getReadableTemp();
     float getTemp();
 
-    void setGovernor(const std::string& val);
+    void setGovernor(const std::string &val);
     uint16_t maximumCore();
 
   protected:
