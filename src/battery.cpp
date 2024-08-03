@@ -5,7 +5,8 @@
 #include "battery.hpp"
 #include <fmt/core.h>
 
-int16_t BatteryManager::getCurrent() {
+namespace Battery {
+int16_t getCurrent() {
     std::ifstream file("/sys/class/power_supply/battery/current_now");
     if (!file.is_open())
         return -127;
@@ -15,7 +16,7 @@ int16_t BatteryManager::getCurrent() {
     return -current;
 }
 
-float BatteryManager::getTemp() {
+float getTemp() {
     std::ifstream file("/sys/class/power_supply/battery/temp");
     if (!file.is_open())
         return -127;
@@ -25,7 +26,7 @@ float BatteryManager::getTemp() {
     return (float)temp / 10;
 }
 
-float BatteryManager::getVoltage() {
+float getVoltage() {
     std::ifstream file("/sys/class/power_supply/battery/voltage_now");
     if (!file.is_open())
         return -127;
@@ -35,19 +36,13 @@ float BatteryManager::getVoltage() {
     return (float)temp / 1000;
 }
 
-std::string BatteryManager::getFmtCurrent() {
-    return fmt::format("{} mA", this->getCurrent());
-}
+std::string getFmtCurrent() { return fmt::format("{} mA", getCurrent()); }
 
-std::string BatteryManager::getFmtTemp() {
-    return fmt::format("{:.3} °C", this->getTemp());
-}
+std::string getFmtTemp() { return fmt::format("{:.3} °C", getTemp()); }
 
-std::string BatteryManager::getFmtVoltage() {
-    return fmt::format("{:.3} V", this->getVoltage());
-}
+std::string getFmtVoltage() { return fmt::format("{:.3} V", getVoltage()); }
 
-std::string BatteryManager::getHealth() {
+std::string getHealth() {
     std::ifstream file("/sys/class/power_supply/battery/health");
     if (!file.is_open())
         return "N/A";
@@ -56,3 +51,4 @@ std::string BatteryManager::getHealth() {
     file >> health;
     return health;
 }
+} // namespace Battery

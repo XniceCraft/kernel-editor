@@ -2,8 +2,21 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 
 #include "utils.hpp"
+#include <fmt/core.h>
+
+std::string getHumanReadableSize(double bytes) {
+    const char *suffix[] = {"B", "KB", "MB", "GB", "TB"};
+    uint8_t i = 0;
+    for (i = 0; i < 5; i++) {
+        if (bytes < 1024)
+            break;
+        bytes /= 1024.0;
+    }
+    return fmt::format("{:.3} {}", bytes, suffix[i]);
+}
 
 uint16_t parseCpuCount(const char *str) {
     // Source:

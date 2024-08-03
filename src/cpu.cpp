@@ -1,17 +1,23 @@
+#include <algorithm>
+#include <cstdint>
+#include <dirent.h>
 #include <fstream>
-#include <iostream>
+#include <memory>
 #include <sstream>
+#include <string.h>
 #include <string>
 #include <vector>
 
-#include <dirent.h>
-#include <string.h>
-
 #include "cpu.hpp"
+#include "ftxui/component/component.hpp"
+#include "ftxui/dom/elements.hpp"
 #include "utils.hpp"
 #include <fmt/core.h>
 
-unsigned int CpuManager::getCoreFreq(unsigned int index) {
+using namespace ftxui;
+
+namespace CpuManager {
+unsigned int getCoreFreq(unsigned int index) {
     std::ifstream file(fmt::format(
         "/sys/devices/system/cpu/cpu{}/cpufreq/scaling_cur_freq", index));
     if (!file.is_open())
@@ -22,42 +28,10 @@ unsigned int CpuManager::getCoreFreq(unsigned int index) {
     return freq;
 }
 
-std::string CpuManager::getGovernor() {
-    std::ifstream file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor");
-    if (!file.is_open())
-        return "N/A";
-
-    std::string governor;
-    file >> governor;
-    return governor;
-}
-
-std::vector<std::string> CpuManager::getGovernors() {
-    std::vector<std::string> governors;
-    std::ifstream file(
-        "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors");
-    if (!file.is_open()) {
-        governors.push_back("N/A");
-        return governors;
-    }
-
-    std::stringstream governor;
-    std::string buffer;
-    governor << file.rdbuf();
-
-    while (getline(governor, buffer, ' '))
-        if (buffer.length() > 1)
-            governors.push_back(buffer);
-
-    if (governors.empty())
-        governors.push_back("N/A");
-    return governors;
-}
-
-void CpuManager::getCpuThermalZone() {
+int8_t getThermalZone() {
     DIR *dir = opendir("/sys/class/thermal/");
     if (dir == NULL)
-        return;
+        return -1;
 
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL) {
@@ -72,23 +46,19 @@ void CpuManager::getCpuThermalZone() {
 
         std::string type;
         file >> type;
-        if (type == "mtktscpu") {
-            this->cpuThermalZone = parseThermalZoneNum(entry->d_name);
-            break;
-        }
+        if (type == "mtktscpu")
+            return parseThermalZoneNum(entry->d_name);
     }
     closedir(dir);
+    return -1;
 }
 
-float CpuManager::getTemp() {
-    if (this->cpuThermalZone == -1) {
-        this->getCpuThermalZone();
-        if (this->cpuThermalZone == -1)
-            return -127;
-    }
+float getTemp() {
+    if (CpuManager::thermalZone == -1)
+        return -127;
 
     std::ifstream file(fmt::format("/sys/class/thermal/thermal_zone{}/temp",
-                                   this->cpuThermalZone));
+                                   CpuManager::thermalZone));
     if (!file.is_open())
         return -127;
 
@@ -97,20 +67,66 @@ float CpuManager::getTemp() {
     return (float)temp / 1000;
 }
 
-std::string CpuManager::getReadableCoreFreq(unsigned int index) {
-    unsigned int freq = this->getCoreFreq(index);
+std::string getFmtCoreFreq(unsigned int index) {
+    unsigned int freq = getCoreFreq(index);
     if (freq == 0)
         return "Off";
     return fmt::format("{:.3} GHz", (float)freq / 1000000);
 }
 
-std::string CpuManager::getReadableTemp() {
-    return fmt::format("{:.3} °C", this->getTemp());
+std::string getFmtTemp() { return fmt::format("{:.3} °C", getTemp()); }
+
+std::string getGovernor() {
+    std::ifstream file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor");
+    if (!file.is_open())
+        return "N/A";
+
+    std::string governor;
+    file >> governor;
+    return governor;
 }
 
-uint16_t CpuManager::maximumCore() {
-    if (this->maxCore != 0)
-        return this->maxCore;
+std::vector<std::string> getGovernors() {
+    std::vector<std::string> govs;
+    std::ifstream file(
+        "/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors");
+    if (!file.is_open()) {
+        govs.push_back("N/A");
+        return govs;
+    }
+
+    std::stringstream governor;
+    std::string buffer;
+    governor << file.rdbuf();
+
+    while (getline(governor, buffer, ' '))
+        if (buffer.length() > 1)
+            govs.push_back(buffer);
+
+    if (govs.empty())
+        govs.push_back("N/A");
+    return govs;
+}
+
+void setGovernor() {
+    std::ofstream file("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor");
+    if (!file.is_open())
+        return;
+
+    file << CpuManager::governors[CpuManager::selectedGovernor];
+    file.close();
+}
+
+int getGovernorIndex() {
+    return std::find(CpuManager::governors.begin(), CpuManager::governors.end(),
+                     getGovernor()) -
+           CpuManager::governors.begin();
+}
+
+uint16_t maxCore() {
+    static int16_t maxCoreCount = -1;
+    if (maxCoreCount != -1)
+        return maxCoreCount;
 
     std::ifstream file("/sys/devices/system/cpu/present");
     if (!file.is_open())
@@ -119,6 +135,63 @@ uint16_t CpuManager::maximumCore() {
     std::string str;
     file >> str;
     file.close();
-    this->maxCore = parseCpuCount(str.c_str());
-    return this->maxCore;
+    maxCoreCount = parseCpuCount(str.c_str());
+    return maxCoreCount;
 }
+
+void onChange() {
+    CpuManager::dataChanged = false;
+    setGovernor();
+}
+
+Component getTab() {
+    static Component cpuGov = Dropdown(
+        {.radiobox = {.entries = &CpuManager::governors,
+                      .selected = &CpuManager::selectedGovernor,
+                      .on_change = [&] {
+                        CpuManager::dataChanged = true;
+                      }},
+         .transform = [](bool open, Element checkbox, Element radiobox) {
+             if (open)
+                 return vbox({
+                     checkbox | inverted,
+                     radiobox | vscroll_indicator | frame |
+                         size(HEIGHT, LESS_THAN, 10),
+                     filler(),
+                 });
+             return vbox({
+                 checkbox,
+                 filler(),
+             });
+         }});
+
+    static Component applyButton = Button("Apply", onChange);
+
+    static Component cpuConfigContainer = Container::Vertical({
+        cpuGov,
+        applyButton,
+    });
+
+    return Renderer(cpuConfigContainer, [&] {
+        Elements cpuCoreFreqInfo;
+        for (unsigned int i = 0; i < maxCore(); i++)
+            cpuCoreFreqInfo.push_back(
+                text(fmt::format("Core {}: {:9}", i, getFmtCoreFreq(i))));
+
+        Elements confElems = {
+            hbox({text("Governor : "), cpuGov->Render()})
+        };
+        if (CpuManager::dataChanged)
+            confElems.push_back(applyButton->Render());
+
+        return hbox(
+            {vbox({window(text(" Core Freq ") | bold,
+                          vbox(std::move(cpuCoreFreqInfo))),
+                   window(text(" Temperature ") | bold, text(getFmtTemp()))}) |
+                 flex,
+             window(text(" Configuration ") | bold,
+                    vbox(confElems)) |
+                 flex});
+    });
+}
+}; // namespace CpuManager

@@ -40,6 +40,7 @@ add_executable(
     src/utils.cpp
     src/io.cpp
     src/vmem.cpp
+    src/storage.cpp
 )
 target_link_libraries(kernel-editor
   PRIVATE ftxui::screen
