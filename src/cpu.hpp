@@ -24,4 +24,5 @@ static std::vector<std::string> governors = getGovernors();
 static int8_t thermalZone = getThermalZone();
 static int selectedGovernor = getGovernorIndex();
 static bool dataChanged = false;
+static ftxui::Components components;
 }; // namespace CpuManager

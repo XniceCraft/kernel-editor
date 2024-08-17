@@ -14,6 +14,8 @@
 #include "utils.hpp"
 #include <fmt/core.h>
 
+#include <iostream>
+
 using namespace ftxui;
 
 namespace CpuManager {
@@ -167,12 +169,17 @@ Component getTab() {
 
     static Component applyButton = Button("Apply", onChange);
 
-    static Component cpuConfigContainer = Container::Vertical({
-        cpuGov,
-        applyButton,
-    });
+    components = {
+        cpuGov
+    };
 
-    return Renderer(cpuConfigContainer, [&] {
+    auto container = Container::Vertical(std::move(components));
+
+    if (CpuManager::dataChanged) {
+        components.push_back(applyButton);
+    }
+
+    return Renderer(container, [&] {
         Elements cpuCoreFreqInfo;
         for (unsigned int i = 0; i < maxCore(); i++)
             cpuCoreFreqInfo.push_back(
@@ -181,8 +188,11 @@ Component getTab() {
         Elements confElems = {
             hbox({text("Governor : "), cpuGov->Render()})
         };
-        if (CpuManager::dataChanged)
+
+        if (CpuManager::dataChanged) {
             confElems.push_back(applyButton->Render());
+//            components.push_back(applyButton);
+        }
 
         return hbox(
             {vbox({window(text(" Core Freq ") | bold,
