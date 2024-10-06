@@ -268,15 +268,15 @@ Component getTab() {
         return hbox(
             {vbox({window(text(" Core Freq ") | bold,
                           vbox(std::move(cpuCoreFreqInfo))),
-                   hbox({window(text(" Min Temp ") | bold,
+                   window(text("Temp") | bold, hbox({window(text(" Min ") | bold,
                                 text(getFmtMinTemp())) |
                              flex,
-                         window(text(" Current Temp ") | bold,
+                         window(text(" Current ") | bold,
                                 text(getFmtTemp())) |
                              flex,
-                         window(text(" Max Temp ") | bold,
+                         window(text(" Max ") | bold,
                                 text(getFmtMaxTemp())) |
-                             flex})}) |
+                             flex}))}) |
                  flex,
              window(text(" Configuration ") | bold, vbox(confElems)) | flex});
     });
