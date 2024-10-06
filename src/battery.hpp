@@ -10,4 +10,4 @@ std::string getHealth();
 int16_t getCurrent();
 float getTemp();
 float getVoltage();
-};
+}; // namespace Battery

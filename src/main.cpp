@@ -96,7 +96,7 @@ int main() {
                border;
     });
 
-    auto screen = ScreenInteractive::TerminalOutput();
+    auto screen = ScreenInteractive::Fullscreen();
     auto th = std::thread([&]() {
         while (1) {
             std::this_thread::sleep_for(std::chrono::seconds(1));

@@ -14,9 +14,83 @@
 #include "utils.hpp"
 #include <fmt/core.h>
 
-#include <iostream>
-
 using namespace ftxui;
+
+namespace {
+enum cpuTurboType {
+    NOAVAIL,
+    INTEL,
+    CPUFREQ,
+};
+
+cpuTurboType getAvailTurbo() {
+    std::ifstream file("/sys/devices/system/cpu/intel_pstate/no_turbo");
+    if (file.good())
+        return cpuTurboType::INTEL;
+
+    file.open("/sys/devices/system/cpu/cpufreq/boost");
+    if (file.good())
+        return cpuTurboType::CPUFREQ;
+
+    return cpuTurboType::NOAVAIL;
+}
+
+void apply() {
+    CpuManager::dataChanged = false;
+    CpuManager::setGovernor();
+}
+
+ButtonOption buttonStyle() {
+    auto option = ButtonOption::Animated();
+    option.transform = [](const EntryState &s) {
+        auto element = text(s.label);
+        if (s.focused) {
+            element |= bold;
+        }
+        return element | center | borderEmpty | flex;
+    };
+    return option;
+}
+
+static float minTemp = 1000;
+static float maxTemp = -1;
+static cpuTurboType availableTurbo = getAvailTurbo();
+
+bool getTurboState() {
+    if (availableTurbo == cpuTurboType::NOAVAIL)
+        return false;
+
+    bool state = false;
+    if (availableTurbo == cpuTurboType::INTEL) {
+        std::ifstream file("/sys/devices/system/cpu/intel_pstate/no_turbo");
+        file >> state;
+        state = !state;
+        file.close();
+    } else {
+        std::ifstream file("/sys/devices/system/cpu/cpufreq/boost");
+        file >> state;
+        file.close();
+    }
+    return state;
+}
+
+void setTurbo(bool val) {
+    if (availableTurbo == cpuTurboType::NOAVAIL)
+        return;
+
+    if (availableTurbo == cpuTurboType::INTEL) {
+        std::ofstream file("/sys/devices/system/cpu/intel_pstate/no_turbo");
+        file << (val ? "0" : "1");
+        return;
+    }
+    std::ofstream file("/sys/devices/system/cpu/cpufreq/boost");
+    file << (val ? "1" : "0");
+}
+
+static std::vector<std::string> toggleEntry = {"Off", "On"};
+static int turboSelectedToggle = getTurboState();
+static int lastTurboSelectedToggle = turboSelectedToggle;
+} // namespace
 
 namespace CpuManager {
 unsigned int getCoreFreq(unsigned int index) {
@@ -48,12 +122,15 @@ int8_t getThermalZone() {
 
         std::string type;
         file >> type;
-        if (type == "mtktscpu")
+        if (type == "mtktscpu" || type == "x86_pkg_temp")
             return parseThermalZoneNum(entry->d_name);
     }
     closedir(dir);
     return -1;
 }
+
+std::string getFmtMaxTemp() { return fmt::format("{:.3} °C", maxTemp); }
+std::string getFmtMinTemp() { return fmt::format("{:.3} °C", minTemp); }
 
 float getTemp() {
     if (CpuManager::thermalZone == -1)
@@ -66,14 +143,19 @@ float getTemp() {
 
     int32_t temp;
     file >> temp;
-    return (float)temp / 1000;
+    float result = (float)temp / 1000;
+    if (minTemp > result)
+        minTemp = result;
+    if (maxTemp < result)
+        maxTemp = result;
+    return result;
 }
 
 std::string getFmtCoreFreq(unsigned int index) {
     unsigned int freq = getCoreFreq(index);
     if (freq == 0)
         return "Off";
-    return fmt::format("{:.3} GHz", (float)freq / 1000000);
+    return fmt::format("{} MHz", freq / 1000);
 }
 
 std::string getFmtTemp() { return fmt::format("{:.3} °C", getTemp()); }
@@ -141,18 +223,11 @@ uint16_t maxCore() {
     return maxCoreCount;
 }
 
-void onChange() {
-    CpuManager::dataChanged = false;
-    setGovernor();
-}
-
 Component getTab() {
     static Component cpuGov = Dropdown(
         {.radiobox = {.entries = &CpuManager::governors,
                       .selected = &CpuManager::selectedGovernor,
-                      .on_change = [&] {
-                        CpuManager::dataChanged = true;
-                      }},
+                      .on_change = [&] { CpuManager::dataChanged = true; }},
          .transform = [](bool open, Element checkbox, Element radiobox) {
              if (open)
                  return vbox({
@@ -167,41 +242,43 @@ Component getTab() {
              });
          }});
 
-    static Component applyButton = Button("Apply", onChange);
+    static Component applyButton =
+        Maybe(Button("Apply", apply, buttonStyle()), &CpuManager::dataChanged);
+    static Component turboToggle =
+        Maybe(Toggle(&toggleEntry, &turboSelectedToggle),
+              [&] { return getAvailTurbo() != cpuTurboType::NOAVAIL; });
+    components = {cpuGov, applyButton, turboToggle};
 
-    components = {
-        cpuGov
-    };
+    return Renderer(Container::Vertical(std::move(components)), [&] {
+        if (lastTurboSelectedToggle != turboSelectedToggle) {
+            CpuManager::dataChanged = true;
+            lastTurboSelectedToggle = turboSelectedToggle;
+        }
 
-    auto container = Container::Vertical(std::move(components));
-
-    if (CpuManager::dataChanged) {
-        components.push_back(applyButton);
-    }
-
-    return Renderer(container, [&] {
         Elements cpuCoreFreqInfo;
         for (unsigned int i = 0; i < maxCore(); i++)
             cpuCoreFreqInfo.push_back(
-                text(fmt::format("Core {}: {:9}", i, getFmtCoreFreq(i))));
+                text(fmt::format("Core {}: {}", i, getFmtCoreFreq(i))));
 
         Elements confElems = {
-            hbox({text("Governor : "), cpuGov->Render()})
-        };
-
-        if (CpuManager::dataChanged) {
-            confElems.push_back(applyButton->Render());
-//            components.push_back(applyButton);
-        }
+            vbox({hbox({text("Governor : "), cpuGov->Render()}),
+                  hbox({text("Turbo Boost: "), getAvailTurbo() != cpuTurboType::NOAVAIL ? turboToggle->Render() : text("N/A")}),
+                  applyButton->Render()})};
 
         return hbox(
             {vbox({window(text(" Core Freq ") | bold,
                           vbox(std::move(cpuCoreFreqInfo))),
-                   window(text(" Temperature ") | bold, text(getFmtTemp()))}) |
+                   hbox({window(text(" Min Temp ") | bold,
+                                text(getFmtMinTemp())) |
+                             flex,
+                         window(text(" Current Temp ") | bold,
+                                text(getFmtTemp())) |
+                             flex,
+                         window(text(" Max Temp ") | bold,
+                                text(getFmtMaxTemp())) |
+                             flex})}) |
                  flex,
-             window(text(" Configuration ") | bold,
-                    vbox(confElems)) |
-                 flex});
+             window(text(" Configuration ") | bold, vbox(confElems)) | flex});
     });
 }
 }; // namespace CpuManager

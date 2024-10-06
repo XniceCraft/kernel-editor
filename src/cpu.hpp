@@ -16,13 +16,14 @@ int getGovernorIndex();
 std::string getFmtCoreFreq(unsigned int index);
 std::string getFmtTemp();
 ftxui::Component getTab();
+std::string getFmtMaxTemp();
+std::string getFmtMinTemp();
 float getTemp();
 uint16_t maxCore();
-void onChange();
 
+static bool dataChanged = false;
 static std::vector<std::string> governors = getGovernors();
 static int8_t thermalZone = getThermalZone();
 static int selectedGovernor = getGovernorIndex();
-static bool dataChanged = false;
 static ftxui::Components components;
 }; // namespace CpuManager
