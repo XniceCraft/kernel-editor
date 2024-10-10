@@ -5,6 +5,7 @@ include(FetchContent)
 set(FETCHCONTENT_UPDATES_DISCONNECTED TRUE)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-field-initializers")
 
 function(enable_cxx_compiler_flag_if_supported flag)
     string(FIND "${CMAKE_CXX_FLAGS}" "${flag}" flag_already_set)
@@ -35,12 +36,10 @@ project(kernel-editor LANGUAGES CXX VERSION 1.0.0)
 add_executable(
     kernel-editor
     src/main.cpp
-    src/battery.cpp
-    src/cpu.cpp
-    src/utils.cpp
-    src/io.cpp
-    src/vmem.cpp
-    src/storage.cpp
+    src/tabs/cpu.cpp
+    src/api/battery.cpp
+    src/api/cpu.cpp
+    src/api/storage.cpp
 )
 target_link_libraries(kernel-editor
   PRIVATE ftxui::screen
@@ -51,3 +50,5 @@ target_link_libraries(kernel-editor
 enable_cxx_compiler_flag_if_supported("-Wall")
 enable_cxx_compiler_flag_if_supported("-Wextra")
 enable_cxx_compiler_flag_if_supported("-pedantic")
+enable_cxx_compiler_flag_if_supported("-Werror")
+enable_cxx_compiler_flag_if_supported("-Wpedantic")

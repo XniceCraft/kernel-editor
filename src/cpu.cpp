@@ -35,11 +35,6 @@ cpuTurboType getAvailTurbo() {
     return cpuTurboType::NOAVAIL;
 }
 
-void apply() {
-    CpuManager::dataChanged = false;
-    CpuManager::setGovernor();
-}
-
 ButtonOption buttonStyle() {
     auto option = ButtonOption::Animated();
     option.transform = [](const EntryState &s) {
@@ -90,6 +85,12 @@ void setTurbo(bool val) {
 static std::vector<std::string> toggleEntry = {"Off", "On"};
 static int turboSelectedToggle = getTurboState();
 static int lastTurboSelectedToggle = turboSelectedToggle;
+
+void apply() {
+    CpuManager::dataChanged = false;
+    CpuManager::setGovernor();
+    setTurbo((bool)turboSelectedToggle);
+}
 } // namespace
 
 namespace CpuManager {

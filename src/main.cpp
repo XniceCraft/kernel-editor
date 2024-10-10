@@ -13,18 +13,13 @@
 #include "ftxui/screen/color.hpp"
 #include <fmt/core.h>
 
-#include "battery.hpp"
-#include "cpu.hpp"
-#include "io.hpp"
-#include "storage.hpp"
-#include "utils.hpp"
-#include "vmem.hpp"
+#include "api/battery.hpp"
+#include "api/storage.hpp"
 
 using namespace ftxui;
 
 int main() {
-    std::vector<std::string> tabMenus{"Overview", "CPU", "I/O",
-                                      "Virtual Memory"};
+    std::vector<std::string> tabMenus{"Overview", "CPU"};
     int tabSelected = 0;
     auto tabToggle = Toggle(&tabMenus, &tabSelected);
 
@@ -32,34 +27,36 @@ int main() {
     auto overviewTab = Renderer([&] {
         Elements storages = {
             hbox({text("Internal "), separator(),
-                  text(fmt::format(
-                      " Total: {} Free: {}",
-                      getHumanReadableSize(Storage::getInternalTotal()),
-                      getHumanReadableSize(Storage::getInternalFree())))})};
+                  text(fmt::format(" Total: {} Free: {}",
+                                   Storage::getInternalTotal(),
+                                   Storage::getInternalFree()))})};
+#if __ANDROID__
         if (Storage::isExternalAvail()) {
             storages.push_back(separator());
             storages.push_back(
                 hbox({text("External "), separator(),
-                      text(fmt::format(
-                          " Total: {} Free: {}",
-                          getHumanReadableSize(Storage::getExternalTotal()),
-                          getHumanReadableSize(Storage::getExternalFree())))}));
+                      text(fmt::format(" Total: {} Free: {}",
+                                       Storage::getExternalTotal(),
+                                       Storage::getExternalFree()))}));
+        }
+#endif
+
+        Elements batteries = {};
+        for (unsigned int i = 0; i < Battery::getBatteryCount(); i++) {
+            batteries.push_back(hbox({
+                vbox({text("Voltage"), text(Battery::getFmtVoltage(i))}),
+                separator(),
+                vbox({text("Current"), text(Battery::getFmtCurrent(i))}),
+                separator(),
+                vbox({text("Temp"), text(Battery::getFmtTemp(i))}),
+                separator(),
+                vbox({text("Health"), text(Battery::getHealth(i))}),
+            }));
+            batteries.push_back(separator());
         }
 
-        Element battVolt = text(Battery::getFmtVoltage()) | hcenter;
-        Element battCurrent = text(Battery::getFmtCurrent()) | hcenter;
-        Element battHealth = text(Battery::getHealth()) | hcenter;
-        Element battTemp = text(Battery::getFmtTemp()) | hcenter;
-
-        Elements elems = {
-            window(text(" Storage ") | bold, vbox(storages)),
-            window(text(" Battery ") | bold,
-                   hbox({
-                       window(text("Voltage") | hcenter, battVolt) | flex,
-                       window(text("Current") | hcenter, battCurrent) | flex,
-                       window(text("Temp") | hcenter, battTemp) | flex,
-                       window(text("Health") | hcenter, battHealth) | flex,
-                   }))};
+        Elements elems = {window(text(" Storage ") | bold, vbox(storages)),
+                          window(text(" Batteries ") | bold, vbox(batteries))};
 
         if (getuid() != 0) {
             Element warning =
@@ -74,9 +71,6 @@ int main() {
     auto tabContainer = Container::Tab(
         {
             overviewTab,
-            CpuManager::getTab(),
-            IOManager::getTab(),
-            VirtualMemoryManager::getTab(),
         },
         &tabSelected);
 
@@ -96,7 +90,7 @@ int main() {
                border;
     });
 
-    auto screen = ScreenInteractive::Fullscreen();
+    auto screen = ScreenInteractive::FitComponent();
     auto th = std::thread([&]() {
         while (1) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
